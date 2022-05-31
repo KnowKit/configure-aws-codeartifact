@@ -1,13 +1,19 @@
-name: 'Wait'
-description: 'Wait a designated number of milliseconds'
+name: 'configure-aws-codeartifact'
+description: 'custom Github Action to use AWS CodeArtifact token in Github Actions Workflow'
 inputs:
-  milliseconds:  # id of input
-    description: 'number of milliseconds to wait'
+  domain:
+    description: 'CodeArtifact domain'
     required: true
-    default: '1000'
+  domain-owner:
+    description: 'CodeArtifact domain-owner'
+    required: true
+  duration-seconds:
+    description: 'authorization token duration in seconds'
+    required: false
+    default: '3600'
 outputs:
-  time: # output will be available to future steps
-    description: 'The current time after waiting'
+  endpoint-pypi:
+    description: 'pypi endpoint'
 runs:
   using: 'node16'
   main: 'dist/index.js'

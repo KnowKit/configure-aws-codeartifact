@@ -1,21 +1,55 @@
 const core = require('@actions/core');
-const wait = require('./wait');
+const {
+  CodeartifactClient,
+  GetAuthorizationTokenCommand,
+  GetRepositoryEndpointCommand,
+  // eslint-disable-next-line no-unused-vars
+  GetRepositoryEndpointCommandOutput,
+  PackageFormat,
+} = require('@aws-sdk/client-codeartifact');
 
-
-// most @actions toolkit packages have async methods
 async function run() {
   try {
-    const ms = core.getInput('milliseconds');
-    core.info(`Waiting ${ms} milliseconds ...`);
+    const repository = core.getInput('domain');
+    const domain = core.getInput('domain');
+    const domainOwner = core.getInput('domain-owner');
+    const durationSeconds = core.getInput('duration-seconds');
 
-    core.debug((new Date()).toTimeString()); // debug is only output if you set the secret `ACTIONS_RUNNER_DEBUG` to true
-    await wait(parseInt(ms));
-    core.info((new Date()).toTimeString());
+    const client = new CodeartifactClient({
+      region: 'eu-central-1',
+    });
 
-    core.setOutput('time', new Date().toTimeString());
+    const getRepositoryEndpointCmd = new GetRepositoryEndpointCommand({
+      domain,
+      domainOwner,
+      repository,
+      format: PackageFormat.PYPI,
+    });
+
+    /** @type GetRepositoryEndpointCommandOutput */
+    const endpointResult = await client.send(getRepositoryEndpointCmd);
+
+    core.exportVariable('CODEARTIFACT_ENDPOINT_PYPI', endpointResult.repositoryEndpoint);
+    core.info(`PyPi Repository Endpoint URL: ${endpointResult.repositoryEndpoint}`);
+    core.setOutput('endpoint-pypi', endpointResult.repositoryEndpoint);
+
+    const getAuthorizationTokenCmd = new GetAuthorizationTokenCommand({
+      domain,
+      domainOwner,
+      durationSeconds
+    });
+
+    const tokenResult = await client.send(getAuthorizationTokenCmd);
+    core.exportVariable('CODEARTIFACT_AUTH_TOKEN', tokenResult.authorizationToken);
+    core.setSecret(tokenResult.authorizationToken);
+
   } catch (error) {
     core.setFailed(error.message);
   }
 }
 
-run();
+exports.run = run;
+
+if (require.main === module) {
+  run();
+}
