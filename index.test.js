@@ -1,24 +1,34 @@
-const wait = require('./wait');
-const process = require('process');
-const cp = require('child_process');
-const path = require('path');
+const core = require('@actions/core');
+const {mockClient} = require('aws-sdk-client-mock');
+const {CodeartifactClient, GetRepositoryEndpointCommand, GetAuthorizationTokenCommand} = require('@aws-sdk/client-codeartifact');
+const {run} = require('./index');
 
-test('throws invalid number', async () => {
-  await expect(wait('foo')).rejects.toThrow('milliseconds not a number');
+jest.mock('@actions/core');
+
+const codeArtifactMock = mockClient(CodeartifactClient);
+
+const CODEARTIFACT_ENDPOINT_PYPI = 'https://endpoint.codeartifact.pypi';
+const CODEARTIFACT_AUTH_TOKEN = 'asdfgqwert';
+
+describe('configure-aws-codeartifact', () => {
+
+  beforeEach(() => {
+    codeArtifactMock.reset();
+  });
+
+  test('exports env vars', async () => {
+    codeArtifactMock.on(GetRepositoryEndpointCommand).resolvesOnce({
+      repositoryEndpoint: CODEARTIFACT_ENDPOINT_PYPI
+    });
+
+    codeArtifactMock.on(GetAuthorizationTokenCommand).resolvesOnce({
+      authorizationToken: CODEARTIFACT_AUTH_TOKEN
+    });
+
+    await run();
+    expect(core.exportVariable).toHaveBeenCalledWith('CODEARTIFACT_ENDPOINT_PYPI', CODEARTIFACT_ENDPOINT_PYPI);
+    expect(core.setOutput).toHaveBeenCalledWith('endpoint-pypi', CODEARTIFACT_ENDPOINT_PYPI);
+    expect(core.exportVariable).toHaveBeenCalledWith('CODEARTIFACT_AUTH_TOKEN', CODEARTIFACT_AUTH_TOKEN);
+    expect(core.setSecret).toHaveBeenCalledWith(CODEARTIFACT_AUTH_TOKEN);
+  });
 });
-
-test('wait 500 ms', async () => {
-  const start = new Date();
-  await wait(500);
-  const end = new Date();
-  var delta = Math.abs(end - start);
-  expect(delta).toBeGreaterThanOrEqual(500);
-});
-
-// shows how the runner will run a javascript action with env / stdout protocol
-test('test runs', () => {
-  process.env['INPUT_MILLISECONDS'] = 100;
-  const ip = path.join(__dirname, 'index.js');
-  const result = cp.execSync(`node ${ip}`, {env: process.env}).toString();
-  console.log(result);
-})
